@@ -92,7 +92,8 @@ export const useAuthStore = create((set, get) => ({
       query: {
         userId: authUser._id,
       },
-      withCredentials: true, // ✅ for cookie-based auth
+      withCredentials: true,
+      transports: ["websocket", "polling"], // ✅ explicitly enable fallback transports
     });
     socket.connect();
 
