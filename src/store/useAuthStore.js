@@ -3,7 +3,7 @@ import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
-const BASE_URL =  "http://localhost:5001" 
+const BASE_URL =  "https://chatty-app-backend-5cil.onrender.com" 
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -92,6 +92,7 @@ export const useAuthStore = create((set, get) => ({
       query: {
         userId: authUser._id,
       },
+      withCredentials: true, // ✅ for cookie-based auth
     });
     socket.connect();
 
