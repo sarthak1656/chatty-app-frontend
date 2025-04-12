@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { Camera, Mail, User } from "lucide-react";
+import imageCompression from "browser-image-compression";
 
 const ProfilePage = () => {
   const { authUser, isUpdatingProfile, updateProfile } = useAuthStore();
@@ -9,16 +10,28 @@ const ProfilePage = () => {
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    const reader = new FileReader();
-
-    reader.readAsDataURL(file);
-
-    reader.onload = async () => {
-      const base64Image = reader.result;
-      setSelectedImg(base64Image);
-      await updateProfile({ profilePic: base64Image });
-    };
+  
+    const maxSizeMB = 5;
+  
+    try {
+      const compressedFile = await imageCompression(file, {
+        maxSizeMB,
+        maxWidthOrHeight: 800,
+        useWebWorker: true,
+      });
+  
+      const reader = new FileReader();
+      reader.readAsDataURL(compressedFile);
+  
+      reader.onload = async () => {
+        const base64Image = reader.result;
+        setSelectedImg(base64Image);
+        await updateProfile({ profilePic: base64Image });
+      };
+    } catch (error) {
+      console.error("Image compression failed:", error);
+      alert("Failed to compress image. Please try again.");
+    }
   };
 
   return (
