@@ -108,7 +108,10 @@ export const ChatProvider = ({ children }) => {
   const subscribeToMessages = useCallback(() => {
     if (!state.selectedUser || !socket) return;
 
+    console.log("Subscribing to messages for user:", state.selectedUser._id);
+
     socket.on("newMessage", (newMessage) => {
+      console.log("Received new message:", newMessage);
       const isMessageSentFromSelectedUser =
         newMessage.senderId === state.selectedUser._id;
       if (!isMessageSentFromSelectedUser) return;

@@ -1,4 +1,10 @@
-import { createContext, useContext, useReducer, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useReducer,
+  useCallback,
+  useEffect,
+} from "react";
 import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
@@ -37,11 +43,61 @@ const initialState = {
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
+  const connectSocket = useCallback(() => {
+    if (!state.authUser) return;
+
+    // Disconnect existing socket if any
+    if (state.socket) {
+      state.socket.disconnect();
+    }
+
+    const socket = io(BASE_URL, {
+      query: {
+        userId: state.authUser._id,
+      },
+      withCredentials: true,
+      transports: ["websocket", "polling"],
+    });
+
+    dispatch({ type: "SET_SOCKET", payload: socket });
+
+    socket.on("connect", () => {
+      console.log("Socket connected:", socket.id);
+    });
+
+    socket.on("getOnlineUsers", (userIds) => {
+      console.log("Online users received:", userIds);
+      dispatch({ type: "SET_ONLINE_USERS", payload: userIds });
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Socket disconnected");
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+    });
+  }, [state.authUser]);
+
+  const disconnectSocket = useCallback(() => {
+    if (state.socket) {
+      state.socket.disconnect();
+      dispatch({ type: "SET_SOCKET", payload: null });
+      dispatch({ type: "SET_ONLINE_USERS", payload: [] });
+    }
+  }, [state.socket]);
+
+  // Auto-connect socket when user is authenticated
+  useEffect(() => {
+    if (state.authUser && !state.socket) {
+      connectSocket();
+    }
+  }, [state.authUser, state.socket, connectSocket]);
+
   const checkAuth = useCallback(async () => {
     try {
       const res = await axiosInstance.get("/auth/check");
       dispatch({ type: "SET_AUTH_USER", payload: res.data });
-      connectSocket();
     } catch (error) {
       if (error.response?.status !== 401) {
         console.error("Error in checkAuth:", error);
@@ -64,7 +120,6 @@ export const AuthProvider = ({ children }) => {
       const res = await axiosInstance.post("/auth/signup", data);
       dispatch({ type: "SET_AUTH_USER", payload: res.data });
       toast.success("Account created successfully");
-      connectSocket();
     } catch (error) {
       console.error("Error in signup:", error);
       if (error.response?.data?.message) {
@@ -89,7 +144,6 @@ export const AuthProvider = ({ children }) => {
       const res = await axiosInstance.post("/auth/login", data);
       dispatch({ type: "SET_AUTH_USER", payload: res.data });
       toast.success("Logged in successfully");
-      connectSocket();
     } catch (error) {
       console.error("Error in login:", error);
       if (error.response?.data?.message) {
@@ -144,29 +198,6 @@ export const AuthProvider = ({ children }) => {
       });
     }
   }, []);
-
-  const connectSocket = () => {
-    if (!state.authUser || state.socket?.connected) return;
-
-    const socket = io(BASE_URL, {
-      query: {
-        userId: state.authUser._id,
-      },
-      withCredentials: true,
-      transports: ["websocket", "polling"],
-    });
-    socket.connect();
-
-    dispatch({ type: "SET_SOCKET", payload: socket });
-
-    socket.on("getOnlineUsers", (userIds) => {
-      dispatch({ type: "SET_ONLINE_USERS", payload: userIds });
-    });
-  };
-
-  const disconnectSocket = () => {
-    if (state.socket?.connected) state.socket.disconnect();
-  };
 
   return (
     <AuthContext.Provider
